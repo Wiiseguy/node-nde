@@ -6,7 +6,7 @@ Use this library to read Winamp's Media Library database. Extract ratings, etc.
 ## Install
 
 ```
-$ npm i nde
+$ npm i node-nde
 ```
 
 
