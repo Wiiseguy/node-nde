@@ -1,0 +1,24 @@
+{
+  "name": "node-nde",
+  "version": "1.0.0",
+  "description": "Winamp Media Library / Nullsoft Database Engine (NDE) reader",
+  "main": "nde.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Wiiseguy/node-nde"
+  },
+  "keywords": [
+    "nde",
+    "winamp",
+    "medialibrary",
+    "nullsoft"
+  ],
+  "author": "Wiiseguy",
+  "license": "MIT",
+  "dependencies": {
+    "streambuf": "^1.0.2"
+  }
+}
