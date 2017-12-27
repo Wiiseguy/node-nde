@@ -14,7 +14,7 @@ $ npm i nde
 
 ```js
 const path = require('path')
-const NDE = require('nde');
+const NDE = require('node-nde');
 
 var ndeReader = NDE.load('main.dat', 'main.idx');
 
