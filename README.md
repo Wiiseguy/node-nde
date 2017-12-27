@@ -31,7 +31,7 @@ while(data = ndeReader.next()) {
 
 Example of an object returned by next():
 
-```json
+```js
 {
 	filename: 'C:\\music\song.mp3',
 	title: 'Title',
