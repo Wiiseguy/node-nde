@@ -41,14 +41,14 @@ Example of an object returned by next():
 	comment: '',
 	length: 180, // length in sec
 	type: 0,
-	lastupd: 2016-01-04T21:47:39.000Z,
-	lastplay: 2016-01-14T21:34:09.000Z,
+	lastupd: "2016-01-04T21:47:39.000Z",
+	lastplay: "2016-01-14T21:34:09.000Z",
 	rating: 3,
 	playcount: 32,
-	filetime: 2010-11-21T14:37:32.000Z,
+	filetime: "2010-11-21T14:37:32.000Z",
 	filesize: 0,
 	bitrate: 256,
-	dateadded: 2016-01-04T21:47:39.000Z
+	dateadded: "2016-01-04T21:47:39.000Z"
 }
 ```
 
