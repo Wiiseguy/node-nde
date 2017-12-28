@@ -19,6 +19,6 @@
   "author": "Wiiseguy",
   "license": "MIT",
   "dependencies": {
-    "streambuf": "^1.0.2"
+    "streambuf": "^1.0.4"
   }
 }

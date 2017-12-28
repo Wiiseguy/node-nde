@@ -147,7 +147,7 @@ function NdeFileIndex(fname) {
 		
 		var header = buffer.readString(8);
 		assert.equal(header, "NDEINDEX");		
-		count = buffer.readUInt();
+		count = buffer.readUInt32LE();
 
 		vm.reset();
 	}
@@ -158,8 +158,8 @@ function NdeFileIndex(fname) {
             return null;
         }
 
-        var offset = buffer.readUInt();
-		var index = buffer.readUInt();
+        var offset = buffer.readUInt32LE();
+		var index = buffer.readUInt32LE();
 		
 		return offset;
     }
