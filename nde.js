@@ -95,7 +95,7 @@ function NdeFileData(fname, Index) {
 			field.size = buffer.readUInt32LE();
 			field.next = buffer.readUInt32LE();
 			field.prev = buffer.readUInt32LE();	
-			field.data = StreamBuffer(buffer.read(field.size));
+			field.data = buffer.read(field.size);
 			
 			isCol = field.type == FIELD_TYPES.COLUMN;
 
