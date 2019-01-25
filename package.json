@@ -1,6 +1,6 @@
 {
   "name": "node-nde",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Winamp Media Library / Nullsoft Database Engine (NDE) reader",
   "main": "nde.js",
   "scripts": {
