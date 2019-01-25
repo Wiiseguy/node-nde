@@ -39,7 +39,7 @@ function NdeFileData(fname, Index) {
     }
 
     function convert(field) {
-        var data, size;
+        var size;
         switch (field.type) {
             case FIELD_TYPES.COLUMN:
                 field.data.skip(2);
