@@ -62,4 +62,4 @@ filename title artist album year genre comment trackno length type lastupd lastp
 Credits
 -------
 
-This library's code was mostly ported from [neuralys/nde](https://github.com/neuralys/nde).
+This library's code was mostly ported and simplified from [neuralys/nde](https://github.com/neuralys/nde) (PHP).
