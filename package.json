@@ -14,7 +14,9 @@
     "nde",
     "winamp",
     "medialibrary",
-    "nullsoft"
+    "nullsoft",
+    "dat",
+    "idx"
   ],
   "author": "Wiiseguy",
   "license": "MIT",

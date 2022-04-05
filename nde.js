@@ -19,27 +19,28 @@ const FIELD_TYPES = {
     LONG: 13 // assumption, used by filesize, which uses 8 bytes
 };
 
-const NDE = {
-    load: (pathDatFile, pathIdxFile) => {
-        var nfi = new NdeFileIndex(pathIdxFile);
-        var nfd = new NdeFileData(pathDatFile, nfi);
-        return nfd;
+function load(pathDatFile, pathIdxFile) {
+    if(pathIdxFile) {
+        let nfi = new NdeFileIndex(pathIdxFile);
+        return new NdeFileData(pathDatFile, nfi)
     }
-};
+
+    return new NdeFileData(pathDatFile);
+}
 
 function NdeFileData(fname, Index) {
-    var vm = this;
-    var buffer;
-    var columns;
+    let self = this;
+    let buffer;
+    let columns;
 
     function init() {
         buffer = new StreamBuffer(fs.readFileSync(fname));
-        var header = buffer.readString(8);
+        let header = buffer.readString(8);
         assert.equal(header, "NDETABLE");
     }
 
     function convert(field) {
-        var size;
+        let size;
         switch (field.type) {
             case FIELD_TYPES.COLUMN:
                 field.data.skip(2);
@@ -64,27 +65,53 @@ function NdeFileData(fname, Index) {
             case FIELD_TYPES.INDEX:
                 field.data.skip(8);
                 size = field.data.readByte();
-                return field.data.readString($size);
+                return field.data.readString(size);
 
             default:
                 return '';
         }
     }
 
-    vm.next = function () {
-        var offset = Index.next();
+    self.readAll = function() {
+        let files = [];
+        let entry;
+
+        // If we don't have an index, attempt to read .dat file anyway
+        if(!Index) {
+            // get columns
+            let columns = self.next(8); // start after header "NDETABLE"        
+
+            // Read garbage
+            let garbage = self.next(buffer.getPos());
+            
+            while((entry = self.next(buffer.getPos()))) {
+                files.push(entry); 
+                if(buffer.isEOF()) break;
+            }
+        } else {
+            while(entry = self.next()) {
+                files.push(entry);
+            }
+        }
+
+        return files;
+    }
+
+    self.next = function (start = -1) {
+        if(start < 0 && !Index) throw new Error(`next() without a valid 'start' requires an index file`);
+        let offset = start >= 0 ? start : Index.next();
 
         if (offset === null) {
             return null;
         }
 
-        var field = {};
-        var isCol;
+        let field = {};
+        let isCol;
 
-        var value;
-        var colName;
+        let value;
+        let colName;
 
-        var props = {};
+        let props = {};
 
         while (offset) {
             buffer.seek(offset);
@@ -98,8 +125,8 @@ function NdeFileData(fname, Index) {
 
             isCol = field.type === FIELD_TYPES.COLUMN;
 
-            if (field.type === FIELD_TYPES.INDEX) {
-                return vm.next();
+            if (field.type === FIELD_TYPES.INDEX && Index) {
+                return self.next();
             }
 
             value = convert(field);
@@ -114,19 +141,20 @@ function NdeFileData(fname, Index) {
                     props[field.id] = value;
                 }
             }
-
             offset = field.next;
         }
 
         if (isCol) {
             columns = props;
-            return vm.next();
+            if (Index) {
+                return self.next();
+            }
         }
 
         return props;
     };
 
-    vm.reset = function () {
+    self.reset = function () {
         columns = [];
         Index.reset();
     };
@@ -135,39 +163,44 @@ function NdeFileData(fname, Index) {
 }
 
 function NdeFileIndex(fname) {
-    var vm = this;
-    var count;
-    var buffer;
-    var cur;
+    let self = this;
+    let count;
+    let buffer;
+    let cur;
 
     function init() {
         cur = 0;
         buffer = new StreamBuffer(fs.readFileSync(fname));
 
-        var header = buffer.readString(8);
+        let header = buffer.readString(8);
         assert.equal(header, "NDEINDEX");
         count = buffer.readUInt32LE();
 
-        vm.reset();
+        self.reset();
     }
 
-    vm.next = function () {
+    self.next = function () {
         cur++;
         if (buffer.isEOF() || (cur > count)) {
             return null;
         }
 
-        var offset = buffer.readUInt32LE();
-        var index = buffer.readUInt32LE();
+        let offset = buffer.readUInt32LE();
+        let index = buffer.readUInt32LE();
 
         return offset;
     };
 
-    vm.reset = function () {
+    self.reset = function () {
         buffer.seek(16);
     };
 
     init(fname);
 }
 
-module.exports = NDE;
+module.exports = {
+    load,
+
+    NdeFileData,
+    NdeFileIndex,
+};
