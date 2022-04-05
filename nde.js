@@ -15,8 +15,8 @@ const FIELD_TYPES = {
     FLOAT: 9,
     DATETIME: 10,
     LENGTH: 11,
-    FILENAME: 12, // assumption, used by filename
-    LONG: 13 // assumption, used by filesize, which uses 8 bytes
+    FILENAME: 12, // Assumption, used by filename
+    LONG: 13 // Assumption, used by filesize, which uses 8 bytes
 };
 
 function load(pathDatFile, pathIdxFile) {
@@ -59,7 +59,7 @@ function NdeFileData(fname, Index) {
             case FIELD_TYPES.STRING:
             case FIELD_TYPES.FILENAME:
                 size = field.data.readUInt16LE() - 2;
-                field.data.skip(2); // skip unicode bom
+                field.data.skip(2); // Skip unicode BOM
                 return field.data.readString(size, "utf16le");
 
             case FIELD_TYPES.INDEX:
@@ -78,18 +78,18 @@ function NdeFileData(fname, Index) {
 
         // If we don't have an index, attempt to read .dat file anyway
         if(!Index) {
-            // get columns
-            let columns = self.next(8); // start after header "NDETABLE"        
+            // Read columns
+            let columns = self.next(8); // Start after header "NDETABLE"        
 
             // Read garbage
             let garbage = self.next(buffer.getPos());
             
-            while((entry = self.next(buffer.getPos()))) {
+            while ((entry = self.next(buffer.getPos()))) {
                 files.push(entry); 
                 if(buffer.isEOF()) break;
             }
         } else {
-            while(entry = self.next()) {
+            while (entry = self.next()) {
                 files.push(entry);
             }
         }
