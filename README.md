@@ -23,7 +23,7 @@ let library = ndeReader.readAll();
 
 > Note: main.dat and main.idx can be found in Winamp's Plugins\ml folder.
 
-Example of an object returned by readAll():
+Example of the result of `readAll()`:
 
 ```js
 [
