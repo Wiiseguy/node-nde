@@ -66,6 +66,7 @@ const ndeReader = NDE.load('main.dat');
 
 let library = ndeReader.readAll();
 ```
+Please note that this method may not be able to read all the entries in the database and may start looping at some point. In that case, the reader will stop and return the entries it has read so far.
 
 Credits
 -------

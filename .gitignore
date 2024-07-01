@@ -1,3 +1,4 @@
 .vs
 node_modules 
-nde_test.js
+coverage
+nde_tester.js

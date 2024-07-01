@@ -1,0 +1,15 @@
+{
+    "compilerOptions": {
+        "checkJs": true,
+        "target": "ESNext",
+        "allowUnusedLabels": false,
+        "allowUnreachableCode": false,
+        "noUnusedParameters": true,
+        "noUnusedLocals": true,
+        "moduleResolution": "node",
+        "allowJs": true
+    },
+    "include": [
+        "node_modules/streambuf/index.d.ts"
+    ]
+}

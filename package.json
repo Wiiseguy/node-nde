@@ -4,7 +4,9 @@
   "description": "Winamp Media Library / Nullsoft Database Engine (NDE) reader",
   "main": "nde.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "aqa",
+    "test:watch": "aqa --watch",
+    "test:coverage": "c8 npm test & c8 report -r lcov"
   },
   "repository": {
     "type": "git",
@@ -21,6 +23,10 @@
   "author": "Wiiseguy",
   "license": "MIT",
   "dependencies": {
-    "streambuf": "^1.2.2"
+    "streambuf": "^1.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.9",
+    "aqa": "^1.6.11"
   }
 }

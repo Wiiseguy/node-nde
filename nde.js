@@ -1,7 +1,11 @@
-const fs = require("fs");
-const StreamBuffer = require("streambuf");
+const fs = require('fs');
+const StreamBuffer = require('streambuf');
 const assert = require('assert');
 
+/*
+  NOTE: In real life scenarios these have never been encountered: 
+    UNDEFINED, REDIRECTOR, BOOLEAN, BINARY, GUID, FLOAT
+*/
 const FIELD_TYPES = {
     UNDEFINED: 255,
     COLUMN: 0,
@@ -19,77 +23,108 @@ const FIELD_TYPES = {
     LONG: 13 // Assumption, used by filesize, which uses 8 bytes
 };
 
-function load(pathDatFile, pathIdxFile) {
-    if(pathIdxFile) {
-        let nfi = new NdeFileIndex(pathIdxFile);
-        return new NdeFileData(pathDatFile, nfi)
+function load(datFileOrBuffer, idxFileOrBuffer) {
+    if (typeof datFileOrBuffer === 'string') {
+        datFileOrBuffer = fs.readFileSync(datFileOrBuffer);
+    }
+    if (typeof idxFileOrBuffer === 'string') {
+        idxFileOrBuffer = fs.readFileSync(idxFileOrBuffer);
     }
 
-    return new NdeFileData(pathDatFile);
+    let nfi = null;
+    if (idxFileOrBuffer) {
+        nfi = new NdeFileIndex(idxFileOrBuffer);
+    }
+
+    return new NdeFileData(datFileOrBuffer, nfi);
 }
 
-function NdeFileData(fname, Index) {
-    let self = this;
-    let buffer;
-    let columns;
+class NdeFileData {
+    #buffer;
+    #columns;
+    #visitedOffsets;
+    #Index;
 
-    function init() {
-        buffer = new StreamBuffer(fs.readFileSync(fname));
-        let header = buffer.readString(8);
-        assert.equal(header, "NDETABLE");
+    constructor(bufDat, Index) {
+        this.#Index = Index;
+        this.#buffer = StreamBuffer.from(bufDat);
+        const header = this.#buffer.readString(8);
+        assert.equal(header, 'NDETABLE');
+        this.reset();
     }
 
-    function convert(field) {
-        let size;
+    #convert(field) {
         switch (field.type) {
-            case FIELD_TYPES.COLUMN:
-                field.data.skip(2);
-                size = field.data.readByte();
+            case FIELD_TYPES.COLUMN: {
+                field.data.skip(2); // Skip column field type and index unique values
+                const size = field.data.readByte();
                 return field.data.readString(size);
+            }
+            case FIELD_TYPES.INDEX: {
+                const offset = field.data.readUInt32LE();
+                const type = field.data.readUInt32LE();
+                const size = field.data.readByte();
+                const name = field.data.readString(size);
+                return { offset, type, name };
+            }
+            case FIELD_TYPES.REDIRECTOR:
+                return field.data.readUInt32LE();
+            case FIELD_TYPES.STRING:
+            case FIELD_TYPES.FILENAME: {
+                const size = field.data.readUInt16LE();
+                const start = field.data.tell();
+                let str = field.data.readString(size, 'utf16le');
 
+                // Remove unicode BOM if present
+                if (str.charCodeAt(0) === 0xfeff) {
+                    str = str.substring(1);
+                } else {
+                    field.data.seek(start);
+                    const normalStr = field.data.readString(size, 'utf8');
+                    str = normalStr;
+                }
+
+                return str;
+            }
             case FIELD_TYPES.INTEGER:
             case FIELD_TYPES.LENGTH:
                 return field.data.readUInt32LE();
-            case FIELD_TYPES.LONG:
-                return field.data.readUInt32LE() + (field.data.readUInt32LE() * Math.pow(2, 32));
-
+            case FIELD_TYPES.BOOLEAN:
+                return field.data.readByte() === 1;
+            case FIELD_TYPES.BINARY: {
+                const size = field.data.readUInt16LE();
+                return field.data.read(size).buffer;
+            }
+            case FIELD_TYPES.GUID:
+                return [...field.data.read(16).buffer];
+            case FIELD_TYPES.FLOAT:
+                return field.data.readFloatLE();
             case FIELD_TYPES.DATETIME:
                 return new Date(field.data.readUInt32LE() * 1000);
-
-            case FIELD_TYPES.STRING:
-            case FIELD_TYPES.FILENAME:
-                size = field.data.readUInt16LE() - 2;
-                field.data.skip(2); // Skip unicode BOM
-                return field.data.readString(size, "utf16le");
-
-            case FIELD_TYPES.INDEX:
-                field.data.skip(8);
-                size = field.data.readByte();
-                return field.data.readString(size);
+            case FIELD_TYPES.LONG:
+                return field.data.readUInt32LE() + field.data.readUInt32LE() * Math.pow(2, 32);
 
             default:
-                return '';
+                console.warn(`Unknown field type detected: ${field.type}`, {
+                    id: field.id,
+                    size: field.size,
+                    data: field.data.buffer.toString()
+                });
+                return `UNKNOWN_TYPE: ${field.type} - size: ${field.size} - data: ${field.data.buffer.toString()}`;
         }
     }
 
-    self.readAll = function() {
-        let files = [];
+    readAll() {
+        const files = [];
         let entry;
 
-        // If we don't have an index, attempt to read .dat file anyway
-        if(!Index) {
-            // Read columns
-            let columns = self.next(8); // Start after header "NDETABLE"        
-
-            // Read garbage
-            let garbage = self.next(buffer.getPos());
-            
-            while ((entry = self.next(buffer.getPos()))) {
-                files.push(entry); 
-                if(buffer.isEOF()) break;
+        if (!this.#Index) {
+            while ((entry = this.next(this.#buffer.getPos()))) {
+                files.push(entry);
+                if (this.#buffer.isEOF()) break;
             }
         } else {
-            while (entry = self.next()) {
+            while ((entry = this.next())) {
                 files.push(entry);
             }
         }
@@ -97,25 +132,37 @@ function NdeFileData(fname, Index) {
         return files;
     }
 
-    self.next = function (start = -1) {
-        if(start < 0 && !Index) throw new Error(`next() without a valid 'start' requires an index file`);
-        let offset = start >= 0 ? start : Index.next();
+    #readColumns(columnsOffset) {
+        this.#columns = this.next(columnsOffset);
+    }
+    #readIndexes(indexesOffset) {
+        // These are not relevant and are not used
+        this.next(indexesOffset);
+    }
 
-        if (offset === null) {
+    next(start = -1) {
+        if (start < 0 && this.#Index == null) throw new Error(`next() without a valid 'start' requires an index file`);
+        const buffer = this.#buffer;
+        const record = {};
+        let offset = start >= 0 ? start : this.#Index.next();
+        if (offset == null) {
             return null;
         }
 
-        let field = {};
-        let isCol;
-
-        let value;
-        let colName;
-
-        let props = {};
+        if (this.#Index == null) {
+            if (this.#visitedOffsets.includes(offset)) {
+                console.log(
+                    'WARNING: Infinite loop prevented. No Index file provided, and the same offset is being visited again.'
+                );
+                return null;
+            }
+            this.#visitedOffsets.push(offset);
+        }
 
         while (offset) {
             buffer.seek(offset);
 
+            const field = {};
             field.id = buffer.readByte();
             field.type = buffer.readByte();
             field.size = buffer.readUInt32LE();
@@ -123,84 +170,78 @@ function NdeFileData(fname, Index) {
             field.prev = buffer.readUInt32LE();
             field.data = buffer.read(field.size);
 
-            isCol = field.type === FIELD_TYPES.COLUMN;
+            const value = this.#convert(field);
 
-            if (field.type === FIELD_TYPES.INDEX && Index) {
-                return self.next();
+            // If a Redirector is read, jump to its given offset
+            if (field.type === FIELD_TYPES.REDIRECTOR) {
+                offset = value;
+                continue;
             }
 
-            value = convert(field);
-
-            if (columns) {
-                if (columns[field.id]) {
-                    colName = columns[field.id];
-                    props[colName] = value;
-                }
+            if (this.#columns) {
+                const colName = this.#columns[field.id] ?? field.id;
+                record[colName] = value;
             } else {
-                if (isCol) {
-                    props[field.id] = value;
-                }
+                record[field.id] = value;
             }
+
             offset = field.next;
         }
 
-        if (isCol) {
-            columns = props;
-            if (Index) {
-                return self.next();
-            }
-        }
-
-        return props;
-    };
-
-    self.reset = function () {
-        columns = [];
-        Index.reset();
-    };
-
-    init();
-}
-
-function NdeFileIndex(fname) {
-    let self = this;
-    let count;
-    let buffer;
-    let cur;
-
-    function init() {
-        cur = 0;
-        buffer = new StreamBuffer(fs.readFileSync(fname));
-
-        let header = buffer.readString(8);
-        assert.equal(header, "NDEINDEX");
-        count = buffer.readUInt32LE();
-
-        self.reset();
+        return record;
     }
 
-    self.next = function () {
-        cur++;
-        if (buffer.isEOF() || (cur > count)) {
+    reset() {
+        this.#columns = null;
+        this.#visitedOffsets = [];
+        this.#buffer.rewind();
+        this.#Index?.reset();
+
+        if (this.#Index == null) {
+            this.#readColumns(8); // Start after header "NDETABLE"
+            this.#readIndexes(this.#buffer.getPos());
+        } else {
+            this.#readColumns(this.#Index.next());
+            this.#readIndexes(this.#Index.next());
+        }
+    }
+}
+
+class NdeFileIndex {
+    #numRecords;
+    #buffer;
+    #currentRecord;
+
+    constructor(bufIdx) {
+        this.#buffer = new StreamBuffer(bufIdx);
+
+        let header = this.#buffer.readString(8);
+        assert.equal(header, 'NDEINDEX');
+        this.#numRecords = this.#buffer.readUInt32LE();
+        this.reset();
+    }
+
+    next() {
+        this.#currentRecord++;
+        if (this.#buffer.isEOF() || this.#currentRecord > this.#numRecords) {
             return null;
         }
 
-        let offset = buffer.readUInt32LE();
-        let index = buffer.readUInt32LE();
+        let offset = this.#buffer.readUInt32LE();
+        this.#buffer.readUInt32LE();
 
         return offset;
-    };
+    }
 
-    self.reset = function () {
-        buffer.seek(16);
-    };
-
-    init(fname);
+    reset() {
+        this.#currentRecord = 0;
+        this.#buffer.seek(16);
+    }
 }
 
 module.exports = {
     load,
 
     NdeFileData,
-    NdeFileIndex,
+    NdeFileIndex
 };
