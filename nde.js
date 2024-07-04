@@ -1,5 +1,5 @@
 const fs = require('fs');
-const StreamBuffer = require('streambuf');
+const { StreamBuffer } = require('streambuf');
 const assert = require('assert');
 
 /*
@@ -52,7 +52,11 @@ class NdeFileData {
         assert.equal(header, 'NDETABLE');
         this.reset();
     }
-
+    /**
+     * Converts data from a record field based on its type
+     * @param { {type: number, data: StreamBuffer, id: number, size: number }} field
+     * @returns
+     */
     #convert(field) {
         switch (field.type) {
             case FIELD_TYPES.COLUMN: {

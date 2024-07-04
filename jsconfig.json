@@ -7,9 +7,11 @@
         "noUnusedParameters": true,
         "noUnusedLocals": true,
         "moduleResolution": "node",
-        "allowJs": true
+        "allowJs": true,
+        "strictNullChecks": true
     },
-    "include": [
-        "node_modules/streambuf/index.d.ts"
+    "exclude": [
+        "coverage",
+        "fixtures/**/*"
     ]
 }

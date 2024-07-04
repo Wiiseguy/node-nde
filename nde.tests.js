@@ -20,6 +20,7 @@ test('From file - test.dat', t => {
 });
 
 test('From buffer - test.dat', t => {
+    t.disableLogging()
     const fs = require('fs');
     const datFileName = 'fixtures/suite.dat';
     const indexFileName = 'fixtures/suite.idx';
