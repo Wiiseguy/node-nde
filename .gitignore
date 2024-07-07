@@ -2,3 +2,5 @@
 node_modules 
 coverage
 nde_tester.js
+benchmark*.txt
+vscode-profile*

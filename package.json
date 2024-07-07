@@ -23,7 +23,8 @@
   "author": "Wiiseguy",
   "license": "MIT",
   "dependencies": {
-    "streambuf": "^2.0.0-alpha.0"
+    "node-structor": "^1.0.0",
+    "streambuf": "^2.0.0"
   },
   "devDependencies": {
     "@types/node": "^20.14.9",

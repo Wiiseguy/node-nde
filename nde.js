@@ -1,27 +1,10 @@
 const fs = require('fs');
 const { StreamBuffer } = require('streambuf');
 const assert = require('assert');
+const { readStruct } = require('node-structor');
+const { RecordStruct, FIELD_TYPES } = require('./nde_data.js');
 
-/*
-  NOTE: In real life scenarios these have never been encountered: 
-    UNDEFINED, REDIRECTOR, BOOLEAN, BINARY, GUID, FLOAT
-*/
-const FIELD_TYPES = {
-    UNDEFINED: 255,
-    COLUMN: 0,
-    INDEX: 1,
-    REDIRECTOR: 2,
-    STRING: 3,
-    INTEGER: 4,
-    BOOLEAN: 5,
-    BINARY: 6,
-    GUID: 7,
-    FLOAT: 9,
-    DATETIME: 10,
-    LENGTH: 11,
-    FILENAME: 12, // Assumption, used by filename
-    LONG: 13 // Assumption, used by filesize, which uses 8 bytes
-};
+const AVAILABLE_FIELD_TYPES = Object.values(FIELD_TYPES);
 
 function load(datFileOrBuffer, idxFileOrBuffer) {
     if (typeof datFileOrBuffer === 'string') {
@@ -54,67 +37,39 @@ class NdeFileData {
     }
     /**
      * Converts data from a record field based on its type
-     * @param { {type: number, data: StreamBuffer, id: number, size: number }} field
+     * @param { {type: number, data: any, id: number, size: number }} field
      * @returns
      */
     #convert(field) {
+        if (AVAILABLE_FIELD_TYPES.indexOf(field.type) === -1) {
+            console.warn(`Unknown field type detected: ${field.type}`, {
+                id: field.id,
+                size: field.size,
+                data: field.data?.toString()
+            });
+            return `UNKNOWN_TYPE: ${field.type} - size: ${field.size} - data: ${field.data?.toString()}`;
+        }
         switch (field.type) {
-            case FIELD_TYPES.COLUMN: {
-                field.data.skip(2); // Skip column field type and index unique values
-                const size = field.data.readByte();
-                return field.data.readString(size);
-            }
-            case FIELD_TYPES.INDEX: {
-                const offset = field.data.readUInt32LE();
-                const type = field.data.readUInt32LE();
-                const size = field.data.readByte();
-                const name = field.data.readString(size);
-                return { offset, type, name };
-            }
-            case FIELD_TYPES.REDIRECTOR:
-                return field.data.readUInt32LE();
             case FIELD_TYPES.STRING:
             case FIELD_TYPES.FILENAME: {
-                const size = field.data.readUInt16LE();
-                const start = field.data.tell();
-                let str = field.data.readString(size, 'utf16le');
-
-                // Remove unicode BOM if present
+                let str = field.data.str;
                 if (str.charCodeAt(0) === 0xfeff) {
                     str = str.substring(1);
-                } else {
-                    field.data.seek(start);
-                    const normalStr = field.data.readString(size, 'utf8');
-                    str = normalStr;
                 }
-
                 return str;
             }
-            case FIELD_TYPES.INTEGER:
-            case FIELD_TYPES.LENGTH:
-                return field.data.readUInt32LE();
             case FIELD_TYPES.BOOLEAN:
-                return field.data.readByte() === 1;
-            case FIELD_TYPES.BINARY: {
-                const size = field.data.readUInt16LE();
-                return field.data.read(size).buffer;
-            }
+                return field.data === 1;
+            case FIELD_TYPES.BINARY:
+                return field.data.data;
             case FIELD_TYPES.GUID:
-                return [...field.data.read(16).buffer];
-            case FIELD_TYPES.FLOAT:
-                return field.data.readFloatLE();
+                return [...field.data];
             case FIELD_TYPES.DATETIME:
-                return new Date(field.data.readUInt32LE() * 1000);
+                return new Date(field.data * 1000);
             case FIELD_TYPES.LONG:
-                return field.data.readUInt32LE() + field.data.readUInt32LE() * Math.pow(2, 32);
-
+                return Number(field.data);
             default:
-                console.warn(`Unknown field type detected: ${field.type}`, {
-                    id: field.id,
-                    size: field.size,
-                    data: field.data.buffer.toString()
-                });
-                return `UNKNOWN_TYPE: ${field.type} - size: ${field.size} - data: ${field.data.buffer.toString()}`;
+                return field.data;
         }
     }
 
@@ -163,22 +118,24 @@ class NdeFileData {
             this.#visitedOffsets.push(offset);
         }
 
-        while (offset) {
-            buffer.seek(offset);
+        let opts = {
+            offset,
+            info: {
+                pos: 0
+            }
+        };
 
-            const field = {};
-            field.id = buffer.readByte();
-            field.type = buffer.readByte();
-            field.size = buffer.readUInt32LE();
-            field.next = buffer.readUInt32LE();
-            field.prev = buffer.readUInt32LE();
-            field.data = buffer.read(field.size);
+        while (offset) {
+            opts.offset = offset;
+
+            const field = readStruct(RecordStruct, buffer, opts);
+            buffer.seek(opts.info.pos); // Update the buffer position for index-less reads
 
             const value = this.#convert(field);
 
             // If a Redirector is read, jump to its given offset
             if (field.type === FIELD_TYPES.REDIRECTOR) {
-                offset = value;
+                offset = field.data;
                 continue;
             }
 
@@ -186,7 +143,7 @@ class NdeFileData {
                 const colName = this.#columns[field.id] ?? field.id;
                 record[colName] = value;
             } else {
-                record[field.id] = value;
+                record[field.id] = field.data.name;
             }
 
             offset = field.next;
