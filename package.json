@@ -23,11 +23,12 @@
   "author": "Wiiseguy",
   "license": "MIT",
   "dependencies": {
-    "node-structor": "^1.0.0",
+    "node-structor": "^1.1.0",
     "streambuf": "^2.0.0"
   },
   "devDependencies": {
     "@types/node": "^20.14.9",
-    "aqa": "^1.6.13"
+    "aqa": "^1.6.13",
+    "c8": "^10.1.3"
   }
 }

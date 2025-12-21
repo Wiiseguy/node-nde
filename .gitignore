@@ -4,3 +4,5 @@ coverage
 nde_tester.js
 benchmark*.txt
 vscode-profile*
+*.log
+nde_old.js

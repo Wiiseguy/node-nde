@@ -80,6 +80,7 @@ class NdeFileData {
         if (!this.#Index) {
             while ((entry = this.next(this.#buffer.getPos()))) {
                 files.push(entry);
+                /* c8 ignore next */
                 if (this.#buffer.isEOF()) break;
             }
         } else {
