@@ -4,7 +4,7 @@ const assert = require('assert');
 const { readStruct } = require('node-structor');
 const { RecordStruct, FIELD_TYPES } = require('./nde_data.js');
 
-const AVAILABLE_FIELD_TYPES = Object.values(FIELD_TYPES);
+const AVAILABLE_FIELD_TYPES = new Set(Object.values(FIELD_TYPES));
 
 function load(datFileOrBuffer, idxFileOrBuffer) {
     if (typeof datFileOrBuffer === 'string') {
@@ -41,7 +41,7 @@ class NdeFileData {
      * @returns
      */
     #convert(field) {
-        if (AVAILABLE_FIELD_TYPES.indexOf(field.type) === -1) {
+        if (!AVAILABLE_FIELD_TYPES.has(field.type)) {
             console.warn(`Unknown field type detected: ${field.type}`, {
                 id: field.id,
                 size: field.size,

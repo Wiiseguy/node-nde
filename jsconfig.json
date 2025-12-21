@@ -6,12 +6,11 @@
         "allowUnreachableCode": false,
         "noUnusedParameters": true,
         "noUnusedLocals": true,
-        "moduleResolution": "node",
         "allowJs": true,
+        "noImplicitAny": false,
         "strictNullChecks": true
     },
     "exclude": [
-        "coverage",
-        "fixtures/**/*"
+        "coverage"
     ]
 }
